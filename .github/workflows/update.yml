@@ -1,0 +1,40 @@
+name: update-stocks-data
+
+on:
+  schedule:
+    # 每 15 分钟抓一次（美股盘中数据准实时）。UTC 时间，GitHub Actions 会略有延迟。
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Fetch Yahoo data
+        run: python scripts/fetch_yahoo.py
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/stocks.json
+          if git diff --cached --quiet; then
+            echo "无变化，跳过提交"
+          else
+            git commit -m "auto: 更新美股数据 $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
